@@ -1,16 +1,14 @@
 # PowerShell IAM Automation Lab
 
-This project demonstrates how repetitive Active Directory identity-management tasks can be automated with PowerShell.
+This project demonstrates how repetitive Active Directory identity lifecycle tasks can be automated with PowerShell.
 
-## Current Automation: Joiner Provisioning
+## Implemented Automation
 
-The first script in this lab is:
+### 1. Joiner - `New-TechNovaUser.ps1`
+Automates new-user provisioning, including identity generation, department OU placement, AD attributes, secure temporary password handling, account enablement, department security-group assignment, and verification.
 
-```text
-New-TechNovaUser.ps1
-```
-
-It automates the Joiner portion of the user lifecycle by creating a new Active Directory identity and assigning department-based access.
+### 2. Mover - `Move-TechNovaUser.ps1`
+Automates an employee department/role change by identifying the current user, removing obsolete department access, updating department and title attributes, moving the AD object to the new department OU, assigning the new department security group, and displaying the final state for validation.
 
 ## Lab Environment
 
@@ -20,33 +18,7 @@ It automates the Joiner portion of the user lifecycle by creating a new Active D
 - Group OU: `technova-groups`
 - Department OUs under `TECHNOVA-Users`
 
-## What the Script Automates
-
-The script performs the following IAM tasks:
-
-1. Imports the Active Directory PowerShell module.
-2. Accepts employee identity information through configurable variables.
-3. Automatically generates:
-   - `SamAccountName`
-   - User Principal Name (UPN)
-   - Email address
-   - Display name
-4. Maps the employee's department to the correct OU and department security group.
-5. Checks whether the username already exists.
-6. Prompts securely for a temporary password.
-7. Creates and enables the Active Directory account.
-8. Configures identity attributes including:
-   - Department
-   - Job title
-   - Company
-   - Email
-9. Requires the employee to change the password at first logon.
-10. Assigns the appropriate department Global Security Group.
-11. Retrieves the new AD object and displays a provisioning summary for verification.
-
 ## Department Mapping
-
-Current lab mappings are:
 
 | Department | OU | Role Group |
 | --- | --- | --- |
@@ -55,13 +27,11 @@ Current lab mappings are:
 | HR | `TECHNOVA-Users/HR` | `GG-HR-Users` |
 | Sales | `TECHNOVA-Users/Sales` | `GG-Sales-Users` |
 
-> The mapped department group must already exist. If a group is missing, the script reports a warning rather than silently claiming that access was provisioned.
+> Department groups are expected to exist before entitlement assignment. The lab currently uses the groups created during the hands-on exercises.
 
-## Successful Test Case
+## Joiner Test Case
 
-The script was tested by automatically provisioning the fictional employee **Rahul Kumar**.
-
-Test input:
+The Joiner script was tested by provisioning the fictional employee **Rahul Kumar**.
 
 ```text
 First Name: Rahul
@@ -69,88 +39,108 @@ Last Name: Kumar
 Department: HR
 Job Title: HR Analyst
 Company: TechNova
-```
-
-Generated identity:
-
-```text
 Username: rahul.kumar
 UPN: rahul.kumar@technova.local
 Email: rahul.kumar@technova.com
-OU: TECHNOVA-Users/HR
 Role Group: GG-HR-Users
 Enabled: True
 ```
 
-PowerShell reported successful account creation and group assignment. Active Directory Users and Computers was then used as an independent validation source.
-
-Verified final memberships:
+Independent validation in Active Directory confirmed:
 
 ```text
-Rahul Kumar
-├── Domain Users
-└── GG-HR-Users
+Domain Users
+GG-HR-Users
 ```
 
-This confirms that the automation performed both identity provisioning and department entitlement assignment successfully.
+## Mover Test Case
+
+Rahul Kumar was then used to test the automated Mover workflow.
+
+Change request:
+
+```text
+User: rahul.kumar
+Old Department: HR
+New Department: IT
+Old Title: HR Analyst
+New Title: IAM Support Analyst
+```
+
+The Mover automation performed the following lifecycle actions:
+
+1. Retrieved the existing AD identity.
+2. Identified the user's previous department.
+3. Removed the obsolete HR department entitlement.
+4. Updated the Department attribute to `IT`.
+5. Updated the Title attribute to `IAM Support Analyst`.
+6. Moved the account from the HR OU to the IT OU.
+7. Assigned the `GG-IT-Users` entitlement.
+8. Retrieved the final identity and group state for verification.
+
+Final PowerShell verification confirmed:
+
+```text
+Department: IT
+Title: IAM Support Analyst
+OU: TECHNOVA-Users/IT
+Enabled: True
+
+Group memberships:
+Domain Users
+GG-IT-Users
+```
+
+`GG-HR-Users` was no longer present. This demonstrates removal of obsolete access during a role change and helps prevent privilege accumulation/access creep.
 
 ## IAM Concepts Demonstrated
 
 - Active Directory PowerShell administration
-- Joiner automation
-- Identity provisioning
-- Attribute-based account configuration
-- Username and UPN generation
+- Joiner-Mover-Leaver (JML) lifecycle concepts
+- Automated identity provisioning
+- Automated mover/role-change processing
+- Attribute-based identity management
 - Department-to-OU mapping
 - Group-based authorization
 - RBAC concepts
 - Least privilege
+- Removal of obsolete entitlements
+- Access-creep prevention
 - Duplicate-account prevention
 - Secure password input
-- Post-provisioning validation
+- Post-change validation
 
-## Manual PowerShell Learning Completed Before Automation
+## Manual PowerShell Learning
 
-Before building the reusable script, the lab also used PowerShell to:
+Before building the reusable automation, the lab used individual PowerShell commands to query users and OUs, inspect account state and group memberships, create users and security groups, update identity attributes, move AD objects, and assign entitlements.
 
-- Query existing AD users with `Get-ADUser`.
-- Verify disabled account state.
-- Review group memberships with `Get-ADPrincipalGroupMembership`.
-- Locate department OUs with `Get-ADOrganizationalUnit`.
-- Create and update user attributes.
-- Create Global Security Groups.
-- Move AD objects into the correct OU.
-- Assign security-group memberships.
-
-A separate test identity, **Neha Verma**, was provisioned manually through individual PowerShell commands before those tasks were consolidated into the reusable Joiner script.
+A fictional employee, **Neha Verma**, was provisioned manually through individual PowerShell commands before those tasks were consolidated into the Joiner automation.
 
 ## Files
 
 ```text
 06-powershell/
 ├── README.md
-└── New-TechNovaUser.ps1
+├── New-TechNovaUser.ps1
+└── Move-TechNovaUser.ps1
 ```
 
 ## Next Steps
 
-Planned automation improvements:
-
-- Mover automation
 - Leaver/offboarding automation
 - CSV-based bulk provisioning
 - Logging and audit output
-- Better error handling
+- Improved error handling and rollback
 - Input validation
-- Full reusable JML automation workflow
+- Full reusable JML workflow
 
 ## Status
 
 **Joiner automation: ✅ Implemented and tested**
 
-**Mover automation: ⏳ Next**
+**Mover automation: ✅ Implemented and tested**
 
-**Leaver automation: ⏳ Planned**
+**Leaver automation: ⏳ Next**
 
 ---
 
