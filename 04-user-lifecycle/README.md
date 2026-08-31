@@ -9,18 +9,14 @@ The objective is to practice how an IAM Engineer provisions identities, assigns 
 - Active Directory domain: `technova.local`
 - Domain Controller: `TECHNOVA-DC01`
 - Platform: Windows Server 2025 Active Directory Domain Services
-- User OUs:
-  - `TECHNOVA-Users/Finance`
-  - `TECHNOVA-Users/HR`
-  - `TECHNOVA-Users/IT`
-  - `TECHNOVA-Users/Sales`
+- User OUs: Finance, HR, IT, Sales under `TECHNOVA-Users`
 - Group OU: `technova-Groups`
 
 ## Lifecycle Scenario
 
 The fictional employee used for this exercise is **Arjun Rao**.
 
-Initial Joiner information:
+### Initial Joiner identity
 
 | Attribute | Value |
 | --- | --- |
@@ -31,67 +27,24 @@ Initial Joiner information:
 | Company | TechNova |
 | Email | `arjun.rao@technova.com` |
 | Initial OU | `TECHNOVA-Users/Finance` |
-| Standard Finance entitlement | `GG-Finance-Users` |
-
-The complete exercise follows:
-
-```text
-JOINER
-Arjun joins Finance
-        ↓
-Identity provisioned
-        ↓
-Finance entitlement assigned
-
-MOVER
-Arjun transfers to another department
-        ↓
-Finance access removed
-        ↓
-New department access assigned
-
-LEAVER
-Arjun leaves TechNova
-        ↓
-Account disabled
-        ↓
-Access revoked
-        ↓
-Identity deprovisioned
-```
+| Finance entitlement | `GG-Finance-Users` |
 
 # Phase 1 — Joiner ✅ COMPLETED
 
-## Objective
+Arjun was provisioned as a Finance employee and assigned Finance access through group membership rather than direct resource permissions.
 
-Provision a new Finance employee identity and grant only the access required for the employee's role.
+### Completed Joiner actions
 
-## Implementation
+- [x] Created Arjun Rao in Active Directory.
+- [x] Placed the account in `TECHNOVA-Users/Finance`.
+- [x] Configured username `arjun.rao`.
+- [x] Set Department to `Finance`.
+- [x] Set Job Title to `Financial Analyst`.
+- [x] Set Company to `TechNova`.
+- [x] Added Arjun to `GG-Finance-Users`.
+- [x] Verified group membership in ADUC.
 
-The following Joiner actions were completed in Active Directory:
-
-1. Created the user **Arjun Rao**.
-2. Provisioned the account in `TECHNOVA-Users/Finance`.
-3. Configured the username as `arjun.rao`.
-4. Configured IAM-relevant identity attributes:
-   - Department: `Finance`
-   - Job Title: `Financial Analyst`
-   - Company: `TechNova`
-   - Email: `arjun.rao@technova.com`
-5. Added Arjun to the Finance Global security group `GG-Finance-Users`.
-6. Verified Arjun's group memberships in Active Directory Users and Computers.
-
-Verified memberships:
-
-```text
-Arjun Rao
-├── Domain Users
-└── GG-Finance-Users
-```
-
-## Authorization Model
-
-Arjun was not granted NTFS permissions directly. Access is provided through the existing AGDLP design:
+### Finance authorization model
 
 ```text
 Arjun Rao
@@ -105,103 +58,177 @@ C:\Shares\Finance
 Modify permission
 ```
 
-This separates the employee identity from the resource permission and makes access easier to provision, review, change, and revoke.
+This demonstrates group-based authorization, AGDLP, RBAC concepts, and least privilege.
 
-## Joiner IAM Concepts Demonstrated
+# Phase 2 — Mover 🚧 IN PROGRESS
 
-- Identity provisioning
-- Identity attribute management
-- Department-based placement
-- Birthright/standard department access
-- Security-group-based authorization
-- RBAC concepts
-- AGDLP
-- Least privilege
-- Authentication vs authorization
-- Entitlement assignment
+## Mover Scenario
 
-## Joiner Validation
+Arjun has transferred from the **Finance department to the IT department**.
 
-- [x] Active Directory identity created.
-- [x] User placed in the Finance OU.
-- [x] Department and job information configured.
-- [x] Finance entitlement assigned through `GG-Finance-Users`.
-- [x] Group membership verified in ADUC.
-- [x] Access assigned through a security group rather than directly to the employee account.
+| Attribute | Before | After |
+| --- | --- | --- |
+| Department | Finance | IT |
+| Job Title | Financial Analyst | IAM Support Analyst |
+| OU | `TECHNOVA-Users/Finance` | `TECHNOVA-Users/IT` |
+| Department group | `GG-Finance-Users` | `GG-IT-Users` |
 
-> End-user file-share validation remains a separate test because the Windows client VM has not yet been deployed successfully. The AD-side entitlement assignment has been verified.
+## Completed Mover Actions
 
-# Phase 2 — Mover ⏳ NEXT
+### 1. Pre-move access review
 
-## Objective
+Before making the role change, Arjun's memberships were reviewed and confirmed as:
 
-Simulate Arjun transferring from Finance to another department and ensure that access changes follow least privilege.
+```text
+Domain Users
+GG-Finance-Users
+```
 
-### Planned Tasks
+This establishes the employee's existing entitlement state before modifying access.
 
-- Review Arjun's existing access before the role change.
-- Update department/job attributes.
-- Move the AD object to the new department OU where appropriate.
-- Remove `GG-Finance-Users` membership.
-- Assign the new department security group(s).
-- Verify Finance entitlement removal.
-- Verify the new department entitlement.
-- Confirm that obsolete access does not remain and create privilege creep.
+### 2. Revoked obsolete Finance access
 
-### IAM Concepts
+Arjun was removed from:
 
-- Access modification
-- Entitlement review
-- Role change
-- Least privilege
+```text
+GG-Finance-Users
+```
+
+The old department entitlement was deliberately revoked before assigning the new IT entitlement. This reduces the risk of **privilege/access creep** during role changes.
+
+### 3. Moved the identity to the IT OU
+
+Arjun's AD object was moved from:
+
+```text
+TECHNOVA-Users/Finance
+```
+
+to:
+
+```text
+TECHNOVA-Users/IT
+```
+
+### 4. Updated identity attributes
+
+Arjun's organization attributes were changed to reflect the new role:
+
+```text
+Department: IT
+Job Title: IAM Support Analyst
+Company: TechNova
+```
+
+### 5. Created the IT role group
+
+A new Global Security Group was created:
+
+```text
+GG-IT-Users
+```
+
+Purpose: represent standard IT department membership and provide a reusable role/group layer for IT authorization.
+
+### 6. Assigned the new IT entitlement
+
+Arjun was added to `GG-IT-Users`.
+
+Post-move membership was verified in ADUC as:
+
+```text
+Arjun Rao
+├── Domain Users
+└── GG-IT-Users
+```
+
+`GG-Finance-Users` is no longer present, confirming that obsolete Finance entitlement was removed rather than accumulated alongside the new role.
+
+## Mover IAM Concepts Demonstrated
+
+- Pre-change entitlement review
+- Identity attribute modification
+- Organizational role change
 - Access revocation
+- New entitlement provisioning
+- Security-group-based authorization
+- Least privilege
 - Prevention of privilege/access creep
+- Separation of identity attributes from authorization
+- Audit-friendly lifecycle sequencing
+
+## Mover Validation So Far
+
+- [x] Existing Finance access reviewed before change.
+- [x] `GG-Finance-Users` removed.
+- [x] Arjun moved from Finance OU to IT OU.
+- [x] Department changed from Finance to IT.
+- [x] Job title changed from Financial Analyst to IAM Support Analyst.
+- [x] `GG-IT-Users` Global Security Group created.
+- [x] Arjun added to `GG-IT-Users`.
+- [x] Post-move membership verified as `Domain Users` + `GG-IT-Users`.
+- [x] Finance group is absent from post-move membership.
+- [ ] Create an IT resource access group such as `DL-IT-Share-RW`.
+- [ ] Create/configure the IT resource and permissions.
+- [ ] Nest `GG-IT-Users` into the appropriate Domain Local access group.
+- [ ] Validate the complete IT AGDLP authorization chain.
+
+## Planned IT Authorization Model
+
+To maintain the same AGDLP architecture used for Finance, the next implementation step is:
+
+```text
+Arjun Rao
+    ↓
+GG-IT-Users
+    ↓
+DL-IT-Share-RW
+    ↓
+IT resource
+    ↓
+Modify permission
+```
+
+The Mover phase will only be marked fully completed after this IT resource authorization model is implemented and verified.
 
 # Phase 3 — Leaver ⏳ PLANNED
 
-## Objective
+The Leaver phase will securely deprovision Arjun after the Mover exercise is complete.
 
-Securely deprovision Arjun when employment ends.
-
-### Planned Tasks
+Planned controls include:
 
 - Disable the Active Directory account.
 - Revoke department/resource group memberships.
-- Review remaining access assignments.
-- Move the account to an appropriate disabled-user location if configured.
+- Review remaining entitlements.
+- Move the identity to an appropriate disabled-user location if configured.
 - Record the offboarding action.
-- Verify that the identity can no longer be used for normal access.
-
-### IAM Concepts
-
-- Identity deprovisioning
-- Access revocation
-- Account disablement
-- Offboarding controls
-- Orphaned-account prevention
-- Auditability
+- Verify the identity can no longer be used for normal access.
 
 # Overall Validation Checklist
 
 - [x] Joiner identity provisioned.
-- [x] Joiner receives the correct AD entitlement based on department/job requirements.
-- [x] Joiner access assigned through security groups rather than direct resource permissions.
-- [ ] Mover loses access that is no longer required.
-- [ ] Mover receives access appropriate to the new role.
-- [ ] Old permissions do not remain and create privilege creep.
-- [ ] Leaver account is disabled promptly.
-- [ ] Unnecessary group memberships are removed during offboarding.
-- [ ] Lifecycle actions are documented for audit purposes.
+- [x] Joiner Finance entitlement assigned through a security group.
+- [x] Mover's obsolete Finance entitlement revoked.
+- [x] Mover identity and organizational attributes updated.
+- [x] New IT role entitlement assigned.
+- [x] Post-move membership confirms Finance access was not retained.
+- [ ] Complete IT resource authorization through AGDLP.
+- [ ] Complete Mover phase.
+- [ ] Disable Leaver account.
+- [ ] Revoke Leaver entitlements.
+- [ ] Complete final lifecycle access review.
 
-# Evidence
+# Evidence Captured
 
-Joiner implementation evidence captured during the lab includes:
+Lab evidence currently includes:
 
-- Arjun Rao present in the Finance OU.
-- Identity attributes configured for the Finance Financial Analyst role.
-- ADUC `Member Of` verification showing `Domain Users` and `GG-Finance-Users`.
+- Joiner membership showing `Domain Users` and `GG-Finance-Users`.
+- Mover pre-change Finance membership review.
+- Arjun moved into the IT OU.
+- Updated IT / IAM Support Analyst identity attributes.
+- Post-move ADUC membership showing `Domain Users` and `GG-IT-Users`, with the previous Finance group absent.
 
-Screenshots can be added to this repository later as portfolio evidence without exposing passwords or sensitive credentials.
+Screenshots can be added later as portfolio evidence without exposing passwords or sensitive credentials.
 
 # Skills Demonstrated
 
@@ -215,11 +242,13 @@ Screenshots can be added to this repository later as portfolio evidence without 
 - Least-privilege implementation
 - Entitlement management
 - Access reviews
+- Access revocation
+- Privilege-creep prevention
 - IAM operational documentation
 
 ## Lab Status
 
-**Status: Joiner completed — Mover next**
+**Status: Joiner completed — Mover in progress (IT resource authorization next)**
 
 ---
 
