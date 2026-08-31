@@ -2,7 +2,7 @@
 
 This hands-on lab simulates a core Identity and Access Management process: **Joiner → Mover → Leaver (JML)**.
 
-The objective is to practice how an IAM Engineer provisions identities, assigns access based on job responsibilities, modifies entitlements when an employee changes roles, and revokes access when an employee leaves the organization.
+The objective is to practice how an IAM Engineer provisions identities, assigns access based on job responsibilities, modifies entitlements when an employee changes roles, and securely deprovisions access when an employee leaves the organization.
 
 ## Lab Environment
 
@@ -10,6 +10,7 @@ The objective is to practice how an IAM Engineer provisions identities, assigns 
 - Domain Controller: `TECHNOVA-DC01`
 - Platform: Windows Server 2025 Active Directory Domain Services
 - User OUs: Finance, HR, IT, Sales under `TECHNOVA-Users`
+- Disabled identities OU: `TECHNOVA-Disabled-Users`
 - Group OU: `technova-Groups`
 - Resource root: `C:\Shares`
 
@@ -59,11 +60,7 @@ C:\Shares\Finance
 Modify permission
 ```
 
-This demonstrates group-based authorization, AGDLP, RBAC concepts, and least privilege.
-
 # Phase 2 — Mover ✅ COMPLETED
-
-## Mover Scenario
 
 Arjun transferred from the **Finance department to the IT department**.
 
@@ -76,154 +73,19 @@ Arjun transferred from the **Finance department to the IT department**.
 
 ## Completed Mover Actions
 
-### 1. Pre-move entitlement review
+1. Reviewed Arjun's existing memberships before the change: `Domain Users` and `GG-Finance-Users`.
+2. Removed `GG-Finance-Users` to prevent privilege/access creep.
+3. Moved Arjun from `TECHNOVA-Users/Finance` to `TECHNOVA-Users/IT`.
+4. Updated Department to `IT` and Job Title to `IAM Support Analyst`.
+5. Created `GG-IT-Users` and added Arjun to it.
+6. Verified post-move membership as `Domain Users` + `GG-IT-Users`, with Finance access absent.
+7. Created Domain Local Security Group `DL-IT-Share-RW`.
+8. Nested `GG-IT-Users` into `DL-IT-Share-RW`.
+9. Created `C:\Shares\IT` and shared it as `IT`.
+10. Removed broad `Everyone` share access and granted `DL-IT-Share-RW` Change + Read share permissions.
+11. Configured NTFS permissions so `DL-IT-Share-RW` has Modify access while Administrators and SYSTEM retain Full Control.
 
-Before making the role change, Arjun's memberships were reviewed and confirmed as:
-
-```text
-Domain Users
-GG-Finance-Users
-```
-
-This established the employee's entitlement state before access modification.
-
-### 2. Revoked obsolete Finance access
-
-Arjun was removed from:
-
-```text
-GG-Finance-Users
-```
-
-The old department entitlement was deliberately revoked before the new IT entitlement was assigned, reducing the risk of **privilege/access creep**.
-
-### 3. Moved the identity to the IT OU
-
-Arjun's AD object was moved from:
-
-```text
-TECHNOVA-Users/Finance
-```
-
-to:
-
-```text
-TECHNOVA-Users/IT
-```
-
-### 4. Updated identity attributes
-
-Arjun's organizational attributes were updated to:
-
-```text
-Department: IT
-Job Title: IAM Support Analyst
-Company: TechNova
-```
-
-### 5. Created and assigned the IT role group
-
-A Global Security Group was created:
-
-```text
-GG-IT-Users
-```
-
-Arjun was added to this group. Post-move membership was verified in ADUC as:
-
-```text
-Arjun Rao
-├── Domain Users
-└── GG-IT-Users
-```
-
-`GG-Finance-Users` was absent, confirming obsolete Finance entitlement removal.
-
-### 6. Created the IT resource access group
-
-A Domain Local Security Group was created:
-
-```text
-DL-IT-Share-RW
-```
-
-This group represents the permission to read and modify the IT network share.
-
-### 7. Implemented AGDLP group nesting
-
-The IT Global group was nested into the IT Domain Local resource group:
-
-```text
-GG-IT-Users
-    ↓ member of
-DL-IT-Share-RW
-```
-
-The membership was verified through the `DL-IT-Share-RW` Members tab in ADUC.
-
-### 8. Created the IT resource
-
-The following folder was created on the domain controller:
-
-```text
-C:\Shares\IT
-```
-
-It was shared with the network share name:
-
-```text
-IT
-```
-
-Expected UNC path:
-
-```text
-\\TECHNOVA-DC01\IT
-```
-
-### 9. Configured share permissions
-
-Broad `Everyone` share access was removed and the resource access group was assigned:
-
-```text
-DL-IT-Share-RW
-```
-
-Share permissions:
-
-```text
-Change: Allow
-Read:   Allow
-Full Control: Not assigned
-```
-
-### 10. Configured NTFS permissions
-
-Inheritance on `C:\Shares\IT` was disabled and existing inherited entries were converted to explicit permissions before the access model was finalized.
-
-Verified NTFS entries:
-
-```text
-Administrators (TECHNOVA\Administrators)
-    Full control
-    Applies to: This folder, subfolders and files
-
-SYSTEM
-    Full control
-    Applies to: This folder, subfolders and files
-
-CREATOR OWNER
-    Full control
-    Applies to: Subfolders and files only
-
-DL-IT-Share-RW
-    Modify
-    Applies to: This folder, subfolders and files
-```
-
-No broad `Users` or `Everyone` NTFS entry was present in the final configuration.
-
-## Final IT Authorization Model
+### Final IT authorization model
 
 ```text
 Arjun Rao
@@ -237,99 +99,235 @@ C:\Shares\IT / \\TECHNOVA-DC01\IT
 Modify permission
 ```
 
-This completes the AD-side IT authorization model using **AGDLP**:
+This implements the **AGDLP** model:
 
 ```text
 Accounts → Global Groups → Domain Local Groups → Permissions
 ```
 
-## Mover IAM Concepts Demonstrated
+> End-user access testing through `\\TECHNOVA-DC01\IT` remains a separate validation step because the Windows client VM has not yet been successfully deployed. The AD group nesting, share permissions, and NTFS authorization model were configured and verified on the server.
 
-- Pre-change entitlement review
-- Identity attribute modification
-- Organizational role change
-- Access revocation
-- New entitlement provisioning
-- Security-group-based authorization
-- AGDLP
-- RBAC concepts
+# Phase 3 — Leaver ✅ COMPLETED
+
+## Leaver Scenario
+
+Arjun has now left TechNova. The goal of the Leaver process is to stop authentication promptly, revoke role-based access, retain the identity for audit/history, and separate the disabled identity from active employees.
+
+## Completed Leaver Actions
+
+### 1. Pre-offboarding entitlement review
+
+Before deprovisioning, Arjun's current memberships were reviewed in Active Directory Users and Computers.
+
+Verified state:
+
+```text
+Domain Users
+GG-IT-Users
+```
+
+`GG-Finance-Users` was not present, confirming that the previous Mover cleanup remained effective.
+
+### 2. Disabled the Active Directory account
+
+Arjun's Active Directory account was disabled before entitlement removal.
+
+This prevents normal authentication while preserving the directory object for audit, investigation, retention, and controlled administrative handling.
+
+The account was **not deleted**.
+
+### 3. Revoked IT role access
+
+Arjun was removed from:
+
+```text
+GG-IT-Users
+```
+
+Because IT resource authorization was implemented through AGDLP, removing the user from the Global role group breaks Arjun's authorization path to the IT resource:
+
+```text
+Before:
+Arjun Rao
+    ↓
+GG-IT-Users
+    ↓
+DL-IT-Share-RW
+    ↓
+IT Share
+
+After:
+Arjun Rao (Disabled)
+    ↓
+Domain Users only
+```
+
+The shared resource groups themselves remain intact for other authorized IT employees. This demonstrates why permissions should be assigned to groups instead of directly to individual users.
+
+### 4. Created a dedicated Disabled Users OU
+
+A new Organizational Unit was created:
+
+```text
+TECHNOVA-Disabled-Users
+```
+
+Protection from accidental deletion was retained for the OU.
+
+### 5. Moved the disabled identity out of the active IT OU
+
+Arjun's account was moved from:
+
+```text
+TECHNOVA-Users/IT
+```
+
+to:
+
+```text
+TECHNOVA-Disabled-Users
+```
+
+This separates inactive identities from the active departmental user population and provides a clear administrative location for retained disabled accounts.
+
+### 6. Final entitlement review
+
+A final `Member Of` review confirmed that Arjun's only remaining membership is:
+
+```text
+Domain Users
+```
+
+The IT role entitlement `GG-IT-Users` is no longer present.
+
+This provides evidence that role-based IT access was revoked successfully.
+
+## Final Leaver State
+
+```text
+Identity: Arjun Rao
+Account: Disabled
+Location: TECHNOVA-Disabled-Users
+Role entitlement: GG-IT-Users removed
+Finance entitlement: GG-Finance-Users absent
+Remaining primary/default membership: Domain Users
+Direct resource permission: None
+```
+
+## Leaver IAM Concepts Demonstrated
+
+- Pre-offboarding access review
+- Account disablement
+- Authentication termination
+- Entitlement revocation
+- Group-based deprovisioning
 - Least privilege
-- Prevention of privilege/access creep
-- Share vs NTFS permission design
-- Separation of identity, role membership, and resource permissions
-- Audit-friendly lifecycle sequencing
+- Separation of inactive identities
+- Disabled-account retention instead of immediate deletion
+- Post-offboarding entitlement verification
+- Audit-friendly offboarding sequencing
 
-## Mover Validation
+# Full JML Lifecycle Summary
 
-- [x] Existing Finance access reviewed before change.
-- [x] `GG-Finance-Users` removed.
-- [x] Arjun moved from Finance OU to IT OU.
-- [x] Department changed from Finance to IT.
-- [x] Job title changed from Financial Analyst to IAM Support Analyst.
-- [x] `GG-IT-Users` Global Security Group created.
-- [x] Arjun added to `GG-IT-Users`.
-- [x] Post-move membership verified as `Domain Users` + `GG-IT-Users`.
-- [x] Finance group absent from post-move membership.
-- [x] `DL-IT-Share-RW` Domain Local Security Group created.
-- [x] `GG-IT-Users` nested into `DL-IT-Share-RW`.
-- [x] `C:\Shares\IT` created and shared as `IT`.
-- [x] Share permissions restricted to `DL-IT-Share-RW` with Change + Read.
-- [x] NTFS `Modify` permission assigned to `DL-IT-Share-RW`.
-- [x] Broad user access excluded from the final NTFS configuration.
-- [x] Complete AD-side IT AGDLP authorization chain verified.
+```text
+JOINER
+Arjun joins Finance
+    ↓
+Create identity
+    ↓
+GG-Finance-Users
+    ↓
+Finance resource access
 
-> End-user access testing through `\\TECHNOVA-DC01\IT` remains a separate validation step because the Windows client VM has not yet been successfully deployed. The group nesting, share permissions, and NTFS authorization model have been configured and verified on the server.
+MOVER
+Finance → IT
+    ↓
+Review existing access
+    ↓
+Remove GG-Finance-Users
+    ↓
+Update OU + identity attributes
+    ↓
+Add GG-IT-Users
+    ↓
+DL-IT-Share-RW
+    ↓
+IT resource access
 
-# Phase 3 — Leaver ⏳ NEXT
-
-The Leaver phase will securely deprovision Arjun after his employment ends.
-
-Planned controls include:
-
-- Review current access before offboarding.
-- Disable the Active Directory account.
-- Revoke IT department/resource group memberships.
-- Review remaining entitlements.
-- Move the identity to an appropriate disabled-user location if configured.
-- Record the offboarding action.
-- Verify that the account is disabled and no longer retains unnecessary role access.
+LEAVER
+Employment ends
+    ↓
+Review current entitlements
+    ↓
+Disable account
+    ↓
+Remove GG-IT-Users
+    ↓
+Move to TECHNOVA-Disabled-Users
+    ↓
+Verify Domain Users only
+```
 
 # Overall Validation Checklist
 
-- [x] Joiner identity provisioned.
-- [x] Joiner Finance entitlement assigned through a security group.
-- [x] Mover's obsolete Finance entitlement revoked.
-- [x] Mover identity and organizational attributes updated.
-- [x] New IT role entitlement assigned.
-- [x] Post-move membership confirms Finance access was not retained.
-- [x] IT resource authorization implemented through AGDLP.
-- [x] IT share and NTFS permissions configured according to least privilege.
-- [x] Mover phase completed on the AD/server side.
-- [ ] Disable Leaver account.
-- [ ] Revoke Leaver entitlements.
-- [ ] Complete final lifecycle access review.
+## Joiner
+
+- [x] Identity provisioned.
+- [x] Finance attributes configured.
+- [x] Finance entitlement assigned through a security group.
+- [x] Initial group membership verified.
+
+## Mover
+
+- [x] Existing Finance access reviewed.
+- [x] Obsolete Finance entitlement revoked.
+- [x] Identity moved to IT OU.
+- [x] Department and job title updated.
+- [x] New IT role group created and assigned.
+- [x] Finance entitlement absence verified.
+- [x] IT Domain Local resource group created.
+- [x] AGDLP nesting configured.
+- [x] IT share created.
+- [x] Share permissions configured according to least privilege.
+- [x] NTFS Modify permission assigned to the Domain Local resource group.
+
+## Leaver
+
+- [x] Pre-offboarding entitlement review completed.
+- [x] Active Directory account disabled.
+- [x] IT role entitlement revoked.
+- [x] `TECHNOVA-Disabled-Users` OU created.
+- [x] Disabled identity moved out of active IT OU.
+- [x] Final membership review completed.
+- [x] Only `Domain Users` remains in the final membership view.
+- [x] Account retained rather than deleted.
 
 # Evidence Captured
 
-Lab evidence currently includes:
+Lab evidence includes:
 
 - Joiner membership showing `Domain Users` and `GG-Finance-Users`.
 - Mover pre-change Finance membership review.
 - Arjun moved into the IT OU.
-- Updated IT / IAM Support Analyst identity attributes.
+- Updated IT / IAM Support Analyst attributes.
 - Post-move membership showing `Domain Users` and `GG-IT-Users` with Finance membership absent.
 - `DL-IT-Share-RW` membership showing `GG-IT-Users` nested inside it.
 - IT share permissions showing `DL-IT-Share-RW` with Change + Read.
-- Final NTFS permissions showing `DL-IT-Share-RW` with Modify access and administrative/system entries preserved.
+- NTFS permissions showing `DL-IT-Share-RW` with Modify access.
+- Leaver pre-offboarding membership showing `Domain Users` and `GG-IT-Users`.
+- Arjun located in `TECHNOVA-Disabled-Users` after offboarding.
+- Final Leaver membership showing only `Domain Users`.
 
-Screenshots can be added to this repository later as portfolio evidence without exposing passwords or sensitive credentials.
+Screenshots can be added later as portfolio evidence without exposing passwords or sensitive credentials.
 
 # Skills Demonstrated
 
 - Active Directory user administration
 - Joiner/Mover/Leaver lifecycle management
-- Identity provisioning
+- Identity provisioning and deprovisioning
 - Identity attribute management
+- Account disablement
+- Organizational Unit administration
 - Group-based access control
 - RBAC concepts
 - AGDLP
@@ -340,11 +338,12 @@ Screenshots can be added to this repository later as portfolio evidence without 
 - Access reviews
 - Access revocation
 - Privilege-creep prevention
+- Offboarding controls
 - IAM operational documentation
 
 ## Lab Status
 
-**Status: Joiner completed — Mover completed — Leaver next**
+**Status: Joiner ✅ — Mover ✅ — Leaver ✅ — JML LAB COMPLETED**
 
 ---
 
