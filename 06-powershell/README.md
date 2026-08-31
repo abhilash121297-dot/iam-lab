@@ -10,6 +10,9 @@ Automates new-user provisioning, including identity generation, department OU pl
 ### 2. Mover - `Move-TechNovaUser.ps1`
 Automates an employee department/role change by identifying the current user, removing obsolete department access, updating department and title attributes, moving the AD object to the new department OU, assigning the new department security group, and displaying the final state for validation.
 
+### 3. Leaver - `Disable-TechNovaUser.ps1`
+Automates user offboarding by disabling the AD account, removing non-default group memberships, stamping an offboarding date in the Description attribute, moving the account into the disabled-users OU, and verifying the final disabled state and remaining memberships.
+
 ## Lab Environment
 
 - Domain: `technova.local`
@@ -17,6 +20,7 @@ Automates an employee department/role change by identifying the current user, re
 - Platform: Windows Server 2025 Active Directory Domain Services
 - Group OU: `technova-groups`
 - Department OUs under `TECHNOVA-Users`
+- Disabled Users OU: `TECHNOVA-Disabled Users`
 
 ## Department Mapping
 
@@ -57,8 +61,6 @@ GG-HR-Users
 
 Rahul Kumar was then used to test the automated Mover workflow.
 
-Change request:
-
 ```text
 User: rahul.kumar
 Old Department: HR
@@ -67,16 +69,7 @@ Old Title: HR Analyst
 New Title: IAM Support Analyst
 ```
 
-The Mover automation performed the following lifecycle actions:
-
-1. Retrieved the existing AD identity.
-2. Identified the user's previous department.
-3. Removed the obsolete HR department entitlement.
-4. Updated the Department attribute to `IT`.
-5. Updated the Title attribute to `IAM Support Analyst`.
-6. Moved the account from the HR OU to the IT OU.
-7. Assigned the `GG-IT-Users` entitlement.
-8. Retrieved the final identity and group state for verification.
+The Mover automation removed the obsolete HR entitlement, updated the Department and Title attributes, moved the account from the HR OU to the IT OU, assigned `GG-IT-Users`, and displayed the final state for verification.
 
 Final PowerShell verification confirmed:
 
@@ -91,23 +84,94 @@ Domain Users
 GG-IT-Users
 ```
 
-`GG-HR-Users` was no longer present. This demonstrates removal of obsolete access during a role change and helps prevent privilege accumulation/access creep.
+`GG-HR-Users` was no longer present, demonstrating removal of obsolete access and prevention of privilege/access creep.
+
+## Leaver Test Case
+
+The same fictional employee, **Rahul Kumar**, was used to test the automated Leaver workflow after the Mover phase.
+
+The Leaver script performed the following actions:
+
+1. Retrieved the existing AD identity and current lifecycle attributes.
+2. Disabled the Active Directory account.
+3. Removed all non-default group memberships while preserving `Domain Users`.
+4. Stamped the account Description with an offboarding date.
+5. Moved the account to `TECHNOVA-Disabled Users`.
+6. Retrieved the final account state and remaining memberships for verification.
+
+Final PowerShell verification confirmed:
+
+```text
+Department: IT
+Title: IAM Support Analyst
+Enabled: False
+Description: Offboarded - 2026-08-31
+OU: TECHNOVA-Disabled Users
+
+Remaining group memberships:
+Domain Users
+```
+
+`GG-IT-Users` was no longer present. This confirms that authentication was disabled and role-based access was revoked while the identity object was retained for audit/history.
+
+## Complete Automated JML Flow
+
+```text
+JOINER
+Create user
+  ↓
+Set identity attributes
+  ↓
+Place in department OU
+  ↓
+Assign department group
+  ↓
+Verify provisioning
+
+MOVER
+Review existing identity
+  ↓
+Remove obsolete department access
+  ↓
+Update Department + Title
+  ↓
+Move to new department OU
+  ↓
+Assign new department group
+  ↓
+Verify final access
+
+LEAVER
+Retrieve current identity
+  ↓
+Disable account
+  ↓
+Remove non-default entitlements
+  ↓
+Stamp offboarding date
+  ↓
+Move to Disabled Users OU
+  ↓
+Verify disabled state and remaining memberships
+```
 
 ## IAM Concepts Demonstrated
 
 - Active Directory PowerShell administration
-- Joiner-Mover-Leaver (JML) lifecycle concepts
-- Automated identity provisioning
-- Automated mover/role-change processing
+- Joiner-Mover-Leaver lifecycle automation
+- Automated identity provisioning and deprovisioning
 - Attribute-based identity management
 - Department-to-OU mapping
 - Group-based authorization
 - RBAC concepts
 - Least privilege
 - Removal of obsolete entitlements
-- Access-creep prevention
+- Privilege/access-creep prevention
 - Duplicate-account prevention
 - Secure password input
+- Account disablement
+- Offboarding metadata
+- Disabled-account retention
 - Post-change validation
 
 ## Manual PowerShell Learning
@@ -122,17 +186,18 @@ A fictional employee, **Neha Verma**, was provisioned manually through individua
 06-powershell/
 ├── README.md
 ├── New-TechNovaUser.ps1
-└── Move-TechNovaUser.ps1
+├── Move-TechNovaUser.ps1
+└── Disable-TechNovaUser.ps1
 ```
 
 ## Next Steps
 
-- Leaver/offboarding automation
 - CSV-based bulk provisioning
-- Logging and audit output
-- Improved error handling and rollback
+- Logging and audit output to CSV/text files
+- Better error handling and rollback
 - Input validation
-- Full reusable JML workflow
+- Parameterized scripts instead of hard-coded test values
+- Full reusable JML orchestration workflow
 
 ## Status
 
@@ -140,7 +205,9 @@ A fictional employee, **Neha Verma**, was provisioned manually through individua
 
 **Mover automation: ✅ Implemented and tested**
 
-**Leaver automation: ⏳ Next**
+**Leaver automation: ✅ Implemented and tested**
+
+**PowerShell JML automation lab: ✅ COMPLETED**
 
 ---
 
