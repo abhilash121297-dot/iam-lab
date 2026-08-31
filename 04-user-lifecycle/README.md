@@ -16,76 +16,137 @@ The objective is to practice how an IAM Engineer provisions identities, assigns 
   - `TECHNOVA-Users/Sales`
 - Group OU: `technova-Groups`
 
-## Scenario
+## Lifecycle Scenario
 
-A fictional employee joins TechNova and progresses through the complete identity lifecycle.
+The fictional employee used for this exercise is **Arjun Rao**.
 
-The exercise will demonstrate three IAM lifecycle events:
+Initial Joiner information:
+
+| Attribute | Value |
+| --- | --- |
+| Employee | Arjun Rao |
+| Username | `arjun.rao` |
+| Department | Finance |
+| Job Title | Financial Analyst |
+| Company | TechNova |
+| Email | `arjun.rao@technova.com` |
+| Initial OU | `TECHNOVA-Users/Finance` |
+| Standard Finance entitlement | `GG-Finance-Users` |
+
+The complete exercise follows:
 
 ```text
 JOINER
-New employee joins Finance
+Arjun joins Finance
         ↓
 Identity provisioned
         ↓
-Department access assigned
+Finance entitlement assigned
 
 MOVER
-Employee transfers to another department
+Arjun transfers to another department
         ↓
-Old access removed
+Finance access removed
         ↓
-New role/department access assigned
+New department access assigned
 
 LEAVER
-Employee leaves the organization
+Arjun leaves TechNova
         ↓
 Account disabled
         ↓
 Access revoked
         ↓
-Account moved to appropriate disabled-user location
+Identity deprovisioned
 ```
 
-# Phase 1 — Joiner
+# Phase 1 — Joiner ✅ COMPLETED
 
 ## Objective
 
-Provision a new employee identity and grant only the access required for the employee's job.
+Provision a new Finance employee identity and grant only the access required for the employee's role.
 
-### Planned Tasks
+## Implementation
 
-- Create a new Active Directory user.
-- Place the identity in the correct department OU.
-- Configure the employee's basic identity attributes.
-- Assign the appropriate department security group.
-- Verify inherited/group-based access.
-- Confirm the user does not receive unnecessary access.
+The following Joiner actions were completed in Active Directory:
 
-### IAM Concepts
+1. Created the user **Arjun Rao**.
+2. Provisioned the account in `TECHNOVA-Users/Finance`.
+3. Configured the username as `arjun.rao`.
+4. Configured IAM-relevant identity attributes:
+   - Department: `Finance`
+   - Job Title: `Financial Analyst`
+   - Company: `TechNova`
+   - Email: `arjun.rao@technova.com`
+5. Added Arjun to the Finance Global security group `GG-Finance-Users`.
+6. Verified Arjun's group memberships in Active Directory Users and Computers.
+
+Verified memberships:
+
+```text
+Arjun Rao
+├── Domain Users
+└── GG-Finance-Users
+```
+
+## Authorization Model
+
+Arjun was not granted NTFS permissions directly. Access is provided through the existing AGDLP design:
+
+```text
+Arjun Rao
+    ↓
+GG-Finance-Users
+    ↓
+DL-Finance-Share-RW
+    ↓
+C:\Shares\Finance
+    ↓
+Modify permission
+```
+
+This separates the employee identity from the resource permission and makes access easier to provision, review, change, and revoke.
+
+## Joiner IAM Concepts Demonstrated
 
 - Identity provisioning
-- Birthright access
-- Role/group-based access assignment
+- Identity attribute management
+- Department-based placement
+- Birthright/standard department access
+- Security-group-based authorization
+- RBAC concepts
+- AGDLP
 - Least privilege
-- Security group membership
 - Authentication vs authorization
+- Entitlement assignment
 
-# Phase 2 — Mover
+## Joiner Validation
+
+- [x] Active Directory identity created.
+- [x] User placed in the Finance OU.
+- [x] Department and job information configured.
+- [x] Finance entitlement assigned through `GG-Finance-Users`.
+- [x] Group membership verified in ADUC.
+- [x] Access assigned through a security group rather than directly to the employee account.
+
+> End-user file-share validation remains a separate test because the Windows client VM has not yet been deployed successfully. The AD-side entitlement assignment has been verified.
+
+# Phase 2 — Mover ⏳ NEXT
 
 ## Objective
 
-Simulate an employee transferring from one department to another.
+Simulate Arjun transferring from Finance to another department and ensure that access changes follow least privilege.
 
 ### Planned Tasks
 
-- Update the employee's department information.
-- Move the AD object to the new department OU when appropriate.
-- Review existing group memberships.
-- Remove access that is no longer required.
-- Assign the new department's security group(s).
-- Verify that previous department access has been revoked.
-- Verify that new department access is available.
+- Review Arjun's existing access before the role change.
+- Update department/job attributes.
+- Move the AD object to the new department OU where appropriate.
+- Remove `GG-Finance-Users` membership.
+- Assign the new department security group(s).
+- Verify Finance entitlement removal.
+- Verify the new department entitlement.
+- Confirm that obsolete access does not remain and create privilege creep.
 
 ### IAM Concepts
 
@@ -94,13 +155,13 @@ Simulate an employee transferring from one department to another.
 - Role change
 - Least privilege
 - Access revocation
-- Prevention of access accumulation / privilege creep
+- Prevention of privilege/access creep
 
-# Phase 3 — Leaver
+# Phase 3 — Leaver ⏳ PLANNED
 
 ## Objective
 
-Securely deprovision the employee when employment ends.
+Securely deprovision Arjun when employment ends.
 
 ### Planned Tasks
 
@@ -120,52 +181,45 @@ Securely deprovision the employee when employment ends.
 - Orphaned-account prevention
 - Auditability
 
-# Validation Checklist
+# Overall Validation Checklist
 
-The completed lab should demonstrate that:
-
-- [ ] A Joiner receives the correct access based on department/job requirements.
-- [ ] Access is assigned through security groups rather than directly wherever possible.
-- [ ] A Mover loses access that is no longer required.
-- [ ] A Mover receives access appropriate to the new role.
+- [x] Joiner identity provisioned.
+- [x] Joiner receives the correct AD entitlement based on department/job requirements.
+- [x] Joiner access assigned through security groups rather than direct resource permissions.
+- [ ] Mover loses access that is no longer required.
+- [ ] Mover receives access appropriate to the new role.
 - [ ] Old permissions do not remain and create privilege creep.
-- [ ] A Leaver account is disabled promptly.
+- [ ] Leaver account is disabled promptly.
 - [ ] Unnecessary group memberships are removed during offboarding.
-- [ ] The lifecycle actions are documented for audit purposes.
+- [ ] Lifecycle actions are documented for audit purposes.
 
-# Evidence to Capture
+# Evidence
 
-As the lab is implemented, screenshots and implementation notes can be added showing:
+Joiner implementation evidence captured during the lab includes:
 
-1. User creation and department OU placement.
-2. User properties and relevant identity attributes.
-3. Joiner security-group membership.
-4. Mover group-membership changes.
-5. Removal of previous department access.
-6. Assignment of new department access.
-7. Disabled account during the Leaver phase.
-8. Final group-membership/access review.
+- Arjun Rao present in the Finance OU.
+- Identity attributes configured for the Finance Financial Analyst role.
+- ADUC `Member Of` verification showing `Domain Users` and `GG-Finance-Users`.
+
+Screenshots can be added to this repository later as portfolio evidence without exposing passwords or sensitive credentials.
 
 # Skills Demonstrated
 
-Completing this project will provide hands-on evidence of:
-
 - Active Directory user administration
 - Joiner/Mover/Leaver lifecycle management
-- Identity provisioning and deprovisioning
+- Identity provisioning
+- Identity attribute management
 - Group-based access control
 - RBAC concepts
+- AGDLP
 - Least-privilege implementation
 - Entitlement management
 - Access reviews
-- Account offboarding
 - IAM operational documentation
 
 ## Lab Status
 
-**Status: Planned / Implementation in progress**
-
-The README defines the implementation plan before configuration changes are performed. It will be updated with actual results and evidence as each lifecycle phase is completed.
+**Status: Joiner completed — Mover next**
 
 ---
 
